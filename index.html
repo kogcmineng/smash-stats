@@ -1,0 +1,1245 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="smash-static" content="1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- スマホのホーム画面に置いたとき、アイコンで開き、ブラウザの枠なしで出るように -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="スマブラ戦績">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14161b" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f3ef" media="(prefers-color-scheme: light)">
+<title>スマブラ戦績</title>
+<link rel="icon" href="favicon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,700;1,600;1,700;1,800;1,900&family=Noto+Sans+JP:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f4f5; --surface:#ffffff; --surface-2:#ececee; --line:#dcdce0; --line-strong:#b9b9bf;
+  --text:#18181b; --muted:#66666e; --faint:#9c9ca4;
+  --win:#1f7a8c; --lose:#c4553a; --win-soft:#d5ecef; --lose-soft:#f6ddd5;
+  --accent:#18181b; --accent-text:#ffffff; --check:#a87a06; --check-soft:#f6ebc8;
+  --r:6px; --r-s:4px;  /* 角の丸み（大きく丸くしすぎると間延びする） */
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#131315; --surface:#1c1c1f; --surface-2:#26262a; --line:#323236; --line-strong:#4a4a50;
+    --text:#ececef; --muted:#9c9ca4; --faint:#66666e;
+    --win:#4fb6c8; --lose:#ec7a5c; --win-soft:#1d3a41; --lose-soft:#45281f;
+    --accent:#eceef2; --accent-text:#14161b; --check:#e3b341; --check-soft:#3d3218;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#131315; --surface:#1c1c1f; --surface-2:#26262a; --line:#323236; --line-strong:#4a4a50;
+  --text:#ececef; --muted:#9c9ca4; --faint:#66666e;
+  --win:#4fb6c8; --lose:#ec7a5c; --win-soft:#1d3a41; --lose-soft:#45281f;
+  --accent:#eceef2; --accent-text:#14161b; --check:#e3b341; --check-soft:#3d3218;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:"Hiragino Sans","Yu Gothic UI","Meiryo",system-ui,sans-serif;
+  font-size:15px; line-height:1.5; -webkit-text-size-adjust:100%;
+  font-variant-numeric:tabular-nums;
+}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.wrap{max-width:1080px;margin:0 auto;padding:16px 16px calc(96px + env(safe-area-inset-bottom))}
+
+/* 上の帯 */
+header.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 16px}
+header.top h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.02em}
+.me-pick{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+nav.tabs .tin{display:none}   /* タブの中身の層は見た目 B だけで使う */
+/* 自キャラの一覧（自前のプルダウン）：押すと下に開く。右に下向きの印 */
+.me-dd{margin-left:auto;position:relative}
+.me-btn{
+  display:block;position:relative;border:1px solid var(--line);background:var(--surface);color:var(--text);text-align:left;
+  border-radius:var(--r);padding:7px 44px 7px 14px;font-weight:700;font-size:14px;min-width:200px;
+}
+.me-btn:hover{border-color:var(--line-strong)}
+.me-btn::after{content:"";position:absolute;right:16px;top:50%;width:7px;height:7px;margin-top:-6px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
+.me-btn[aria-expanded="true"]::after{transform:rotate(225deg);margin-top:-2px}
+.me-list{
+  position:absolute;right:0;top:calc(100% + 6px);z-index:40;min-width:100%;max-height:min(60vh,420px);overflow:auto;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:6px;display:flex;flex-direction:column;gap:2px;
+  box-shadow:0 10px 28px rgba(0,0,0,.18);transform-origin:50% 0;
+}
+.me-list[hidden]{display:none!important}   /* 閉じた一覧は必ず消す（display:flex が hidden に勝って、閉じても見えたままだった） */
+.me-list.open{animation:meOpen .16s ease-out}
+@keyframes meOpen{from{opacity:0;transform:translateY(-6px) scaleY(.94)}}
+.me-list.closing{animation:meClose .13s ease-in forwards;pointer-events:none}   /* 閉じるとき：開くときの逆（上へ縮みながら薄れる） */
+@keyframes meClose{to{opacity:0;transform:translateY(-6px) scaleY(.94)}}
+.me-opt{border:0;background:transparent;text-align:left;padding:8px 12px;border-radius:var(--r-s);font-weight:600;white-space:nowrap}
+.me-opt:hover{background:var(--surface-2)}
+.me-opt[aria-pressed="true"]{background:var(--accent);color:var(--accent-text)}
+.chip{
+  border:1px solid var(--line);background:var(--surface);border-radius:var(--r-s);
+  padding:4px 12px;font-size:14px;line-height:1.4;white-space:nowrap;
+  transition:background .15s,border-color .15s,color .15s;
+}
+.chip:hover{border-color:var(--line-strong)}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+
+/* 数字は対戦画面の % と同じく、太い斜体の詰めた書体で */
+.num{font-family:"Barlow Condensed","Yu Gothic UI",sans-serif;font-style:italic;font-weight:700;letter-spacing:.01em;font-variant-numeric:normal}
+header.top h1{display:flex;align-items:center;gap:8px}
+.logo{width:26px;height:26px;flex:none;display:block;border-radius:6px}
+
+/* 成績のまとめ：通算・今日・直近 20 戦を並べる。遊んでいる最中にいちばん見たい「今日」を真ん中に大きく */
+/* まとめ：通算・今日・直近 20 試合を、細い線で区切った 3 つの枠に（枠ごとに同じ余白） */
+.summary{
+  display:grid;grid-template-columns:minmax(180px,auto) minmax(180px,auto) 1fr;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-bottom:16px;overflow:hidden;
+}
+.summary .blk{display:flex;flex-direction:column;gap:4px;min-width:0;padding:16px 24px}
+.summary .blk + .blk{border-left:1px solid var(--line)}
+.summary .cap{font-size:12px;color:var(--muted);font-weight:600}
+.big{font-size:46px;line-height:.9}
+.rate{display:flex;align-items:baseline;gap:8px}
+.rate .k{font-size:12px;color:var(--muted);font-weight:600}
+.big small{font-size:22px;margin-left:1px;color:var(--muted)}
+.sub{color:var(--muted);font-size:13px}
+.sub b{color:var(--text);font-weight:600}
+/* 勝ちの数と「勝」は勝ちの色、負けは負けの色（直近の丸・WIN / LOSE の札と同じ色） */
+.sub .w,.sub .w b,.dwl .w,.kpis .w{color:var(--win)}
+.sub .l,.sub .l b,.dwl .l,.kpis .l{color:var(--lose)}
+.streak{display:flex;gap:4px;flex-wrap:wrap}
+.summary .recent{align-items:flex-start;justify-content:space-between;background:color-mix(in oklab,var(--surface-2) 45%,var(--surface))}
+.summary .recent .streak{justify-content:flex-start}
+@media (min-width:601px){ .summary .recent .streak{gap:6px} .summary .recent .dot{width:14px;height:14px} }
+.dot{width:12px;height:12px;border-radius:50%;flex:none;--c:var(--win);--ring:0 0 0 0 transparent}
+.dot.win{background:var(--win)}
+.dot.lose{background:transparent;--c:var(--lose);--ring:inset 0 0 0 2px var(--lose);box-shadow:var(--ring)}
+/* いちばん新しい試合：同じ色の光がふわっと広がっては引く。隣の丸と重ならないよう少し間をあける */
+.dot.latest{margin-right:5px;animation:breathe 2.4s ease-in-out infinite}
+@keyframes breathe{
+  0%,100%{box-shadow:var(--ring),0 0 0 2px color-mix(in oklab,var(--c) 38%,transparent),0 0 4px 2px color-mix(in oklab,var(--c) 30%,transparent)}
+  50%{box-shadow:var(--ring),0 0 0 4px color-mix(in oklab,var(--c) 22%,transparent),0 0 10px 5px color-mix(in oklab,var(--c) 26%,transparent)}
+}
+@media (prefers-reduced-motion: reduce){
+  .dot.latest{animation:none;box-shadow:var(--ring),0 0 0 3px color-mix(in oklab,var(--c) 32%,transparent)}
+}
+
+/* 切り替え */
+nav.tabs{display:flex;gap:4px;background:var(--surface-2);border-radius:var(--r);padding:4px;margin-bottom:16px;width:max-content}
+nav.tabs button{border:0;background:transparent;border-radius:var(--r-s);padding:4px 16px;font-weight:600;color:var(--muted)}
+nav.tabs button[aria-selected="true"]{background:var(--surface);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+.toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.search{
+  flex:1;min-width:180px;max-width:320px;border:1px solid var(--line);background:var(--surface);
+  border-radius:var(--r);padding:8px 12px;outline:none;
+}
+.search:focus{border-color:var(--line-strong)}
+/* 検索欄は「探す」と書かず、虫めがねの印で */
+.search,.pick-q{padding-left:36px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23888c94' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='8.5' cy='8.5' r='5.5'/%3E%3Cpath d='M13 13l4 4'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:12px center;background-size:16px}
+/* 勝率の段階：冷たい色の無表情 → 熱い色の大笑い（炎つき）。顔は暗い丸に光る縁で、明るい表示でも暗い表示でも同じに見える */
+:root{--t0:#35cfe6;--t1:#7ddc3c;--t2:#ffcc1a;--t3:#ff7424}
+.face{display:block;flex:none;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.35))}
+
+/* 相性のタイル */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}
+.tile{
+  position:relative;border:0;text-align:left;border-radius:var(--r);padding:8px 12px;min-height:72px;
+  background:var(--tile-bg,var(--surface));display:flex;flex-direction:column;justify-content:space-between;
+  box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--text) 10%,transparent);transition:box-shadow .12s;
+}
+/* なぞると縁が濃くなる、押すと少し沈む（浮かせる動きは付けない） */
+.tile:hover{box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--text) 35%,transparent)}
+.tile:active{filter:brightness(.96)}
+.tile .nm{font-weight:600;font-size:14px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile.has-face .nm{padding-right:30px}
+/* 顔のあるタイル（見た目 B だけに出る）：パネルやステータスの行と同じ作りにそろえる（2026-11-13 kog さん：明るい色の地だと読みにくくなった）。
+   暗い地に灰色の枠と黒い外枠。段階の色は、左の細い帯・右上のうっすらした光・勝率の数字・顔で見せる。
+   文字は白（キャラ名・勝ち負けの数）と段階の色（勝率）に黒い縁取り */
+.tile.has-face{
+  --nm-color:#fff; --nm-line:3px rgba(5,5,6,.9);
+  --num-line:5px rgba(5,5,6,.85); --sub-line:3px rgba(5,5,6,.85); --memo-line:#050506;
+  background:
+    linear-gradient(90deg,var(--tc) 0 4px,transparent 4px),
+    radial-gradient(110% 85% at 100% 0%,color-mix(in srgb,var(--tc) 30%,transparent),transparent 62%),
+    linear-gradient(180deg,#1a1a1d,#111113);
+  color:#fff;isolation:isolate;
+  box-shadow:inset 0 0 0 2px #2e2e32,0 0 0 2px #050506,0 3px 0 2px #050506;
+  transition:filter .12s,box-shadow .12s;
+}
+.tile.has-face::before{ /* 網点。右上ほど濃く、下へ消える */
+  content:"";position:absolute;inset:0;z-index:-1;
+  background:radial-gradient(circle,rgba(255,255,255,.06) 1px,transparent 1.4px) 0 0/5px 5px;
+  -webkit-mask:linear-gradient(200deg,#000 0,transparent 55%);mask:linear-gradient(200deg,#000 0,transparent 55%);
+}
+.tile .wmc{position:absolute;inset:0;z-index:-1;overflow:hidden;border-radius:inherit;pointer-events:none}
+.tile .wm{position:absolute;width:96px;height:96px;right:-30px;top:-34px;transform:rotate(-14deg);color:color-mix(in srgb,var(--tc) 16%,transparent)}
+.tile.has-face:has(.fire){z-index:1} /* 炎が隣の札へ少しはみ出すので、上に重ねる */
+
+.tile.has-face .nm{font-weight:800;color:var(--nm-color,#fff);-webkit-text-stroke:var(--nm-line);paint-order:stroke fill;padding-left:2px}
+.tile.has-face .rt{
+  margin:0 -6px -3px;padding:3px 10px 2px 14px;border-radius:999px;align-items:center;
+}
+.tile.has-face .pct{color:var(--tc);-webkit-text-stroke:var(--num-line);paint-order:stroke fill}  /* 線の半分は文字の外に出る */
+.tile.has-face .pct small{color:#e6e6ea;-webkit-text-stroke:var(--sub-line)}
+.tile.has-face .wl{color:#e6e6ea;-webkit-text-stroke:var(--sub-line);paint-order:stroke fill}
+.tile.has-face .memo{color:#e6e6ea;opacity:1;filter:drop-shadow(0 0 1px var(--memo-line)) drop-shadow(0 0 1px var(--memo-line))}
+.tile.has-face:hover{ /* なぞると縁が段階の色に光る */
+  box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--tc) 70%,#2e2e32),0 0 0 2px #050506,0 3px 0 2px #050506;
+}
+.tile.has-face:active{filter:brightness(.88)}
+.tile > .face{position:absolute;top:5px;right:6px;width:34px;height:34px}
+.tile .rt{display:flex;align-items:baseline;justify-content:space-between;gap:4px}
+.tile .pct{font-size:26px;line-height:.9}
+.tile .pct small{font-size:14px;margin-left:1px;opacity:.7}
+.tile .wl{font-size:12px;color:var(--muted);white-space:nowrap}   /* 「5-0」を 2 行に折らない */
+/* 数が少ないうちは勝率を言い切らず、勝ち-負けだけを控えめに */
+.tile.few{background:var(--surface)}
+.tile.few .pct{font-size:20px;color:var(--muted)}
+.tile.none{background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+.tile.none .nm{color:var(--faint);font-weight:500}
+.tile .memo{position:absolute;top:8px;right:8px;width:14px;height:14px;color:var(--text);opacity:.6}
+.tile .rt .memo{position:static;display:inline-block;vertical-align:-2px;margin-right:4px}
+
+/* 記録の一覧 */
+.day{margin-bottom:20px}
+.day h3{font-size:13px;color:var(--muted);margin:0 0 8px;font-weight:600;display:flex;gap:12px;align-items:center}
+.day h3 .dwl{color:var(--text)}
+.day h3 .chap{margin-left:auto;border:1px solid var(--line);background:var(--surface);border-radius:var(--r-s);padding:0 8px;font-size:12px;line-height:24px;color:var(--text);font-weight:600}
+.day h3 .chap:hover{border-color:var(--line-strong)}
+pre.chapters{background:var(--surface-2);border-radius:var(--r);padding:12px 16px;margin:6px 0 0;font:inherit;font-size:14px;line-height:1.7;white-space:pre-wrap;user-select:all}
+.rows{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.row{
+  display:grid;grid-template-columns:44px minmax(0,1fr) auto 52px;gap:12px;align-items:center;width:100%;
+  border:0;background:transparent;text-align:left;padding:8px 16px;border-top:1px solid var(--line);
+}
+.row:first-child{border-top:0}
+.row:hover{background:var(--surface-2)}
+.row .tm{color:var(--muted);font-size:13px}
+.row .vs{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 自キャラ（控えめ・幅をそろえる） VS 相手キャラ（太く）。VS は VS 画面と同じ斜体 */
+.row .vs .line{display:flex;align-items:baseline;gap:8px;min-width:0}
+.row .vs .me{color:var(--muted);font-size:13px;flex:0 0 7.5em;overflow:hidden;text-overflow:ellipsis}
+.row .vs .x{color:var(--faint);font-size:13px;flex:none}
+.row .vs .opp{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.row .vs .note{display:block;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.row .st{color:var(--muted);font-size:13px;white-space:nowrap}
+/* 勝敗の札：WIN は塗り、LOSE は縁取り（直近の丸と同じ見分け方） */
+.mark{height:24px;border-radius:var(--r-s);display:grid;place-items:center;font-size:15px;letter-spacing:.04em}
+.mark.win{background:var(--win);color:var(--surface)}
+.mark.lose{box-shadow:inset 0 0 0 1.5px var(--lose);color:var(--lose)}
+.row.check{background:var(--check-soft)}
+.day.checks{margin-bottom:24px}
+.row.check .tm{color:var(--check);font-weight:700}
+.empty{color:var(--muted);padding:32px 0;text-align:center}
+
+/* 足すボタン */
+.fab{
+  position:fixed;right:max(20px,env(safe-area-inset-right));bottom:calc(20px + env(safe-area-inset-bottom));
+  border:1px solid color-mix(in oklab,var(--accent-text) 18%,var(--accent));border-radius:var(--r);background:var(--accent);color:var(--accent-text);
+  padding:12px 20px 12px 16px;font-weight:700;display:flex;gap:8px;align-items:center;
+}
+.fab span{font-size:22px;line-height:0;font-weight:400}
+
+/* 下から出る板 */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.open{opacity:1;pointer-events:auto}
+/* 重なり順：ページ < 足すボタン < 板の後ろの暗幕 < 板 < 知らせ */
+.fab{z-index:15} .scrim{z-index:20} .sheet{z-index:21} .toast{z-index:30}
+.fab{transition:transform .2s,opacity .2s}
+.scrim.open ~ .fab, body.sheet-open .fab{opacity:0;transform:translateY(12px);pointer-events:none}
+.sheet{
+  position:fixed;left:50%;bottom:0;width:min(560px,100%);max-height:88vh;overflow:auto;
+  transform:translate(-50%,100%);transition:transform .25s cubic-bezier(.2,.8,.2,1);
+  background:var(--surface);border-radius:8px 8px 0 0;padding:8px 20px calc(24px + env(safe-area-inset-bottom));
+  border:1px solid var(--line);border-bottom:0;visibility:hidden;
+  transition:transform .25s cubic-bezier(.2,.8,.2,1),visibility 0s .25s;
+}
+.sheet.open{transform:translate(-50%,0);visibility:visible;transition:transform .25s cubic-bezier(.2,.8,.2,1)}
+@media (min-width:700px){
+  /* 広い画面では、下からではなく真ん中に出す */
+  .sheet{top:50%;bottom:auto;border-radius:8px;border-bottom:1px solid var(--line);max-height:86vh;padding-bottom:24px;opacity:0;
+    transform:translate(-50%,-46%) scale(.98);transition:transform .2s ease,opacity .2s ease,visibility 0s .2s}
+  .sheet.open{transform:translate(-50%,-50%);opacity:1;transition:transform .2s ease,opacity .2s ease}
+  .sheet .grab{display:none}
+  .sheet h2{margin-top:6px}
+}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:4px auto 12px}
+.sheet h2{font-size:20px;margin:0 0 4px;display:flex;align-items:center;gap:12px}
+/* つまみ：下にスワイプすると板が下がり、離すと閉じる（×のボタンは置かない） */
+.grab{touch-action:none;cursor:grab;position:relative}
+.grab::before{content:"";position:absolute;inset:-12px -60px -10px}  /* つまみより広く掴めるように */
+.sheet h2{touch-action:none}
+.sheet.dragging{transition:none!important}
+.kpis{display:flex;gap:24px;margin:12px 0 16px;flex-wrap:wrap}
+/* 自キャラで絞り込んでいるときの見出しは「自キャラ VS 相手」。記録の行と同じ形（自キャラは控えめ、VS は斜体） */
+.sheet h2 .me{font-size:15px;color:var(--muted);font-weight:600}
+.sheet h2 .x{font-size:15px;color:var(--faint);margin:0 -4px}
+.kpis div{display:flex;flex-direction:column}
+.kpis .v{font-size:30px;line-height:1}
+.kpis .k{font-size:12px;color:var(--muted)}
+.kpis .last{margin-left:auto;align-self:flex-end;text-align:right}
+.kpis .last .d{font-size:14px;color:var(--muted);font-weight:600}
+.sec{font-size:13px;font-weight:600;color:var(--muted);margin:16px 0 6px}
+.notes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.notes li{background:var(--surface-2);border-radius:var(--r);padding:8px 12px}
+.notes .d{font-size:12px;color:var(--muted);display:block}
+.stage-bars{display:flex;flex-direction:column;gap:8px}
+.sb{display:grid;grid-template-columns:72px 1fr 64px;gap:12px;align-items:center;font-size:13px}
+.sb .track{height:8px;border-radius:2px;background:var(--lose-soft);overflow:hidden}
+.sb .fill{height:100%;background:var(--win)}
+.sb .n{color:var(--muted);text-align:right}
+
+/* 入力 */
+form.edit{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;color:var(--muted);font-weight:600}
+.field select,.field input,.field textarea{
+  border:1px solid var(--line);background:var(--bg);border-radius:var(--r);padding:8px 12px;width:100%;
+}
+.field textarea{min-height:64px;resize:vertical}
+/* 2 つ並ぶ欄は同じ幅・同じ高さ。日時の欄はブラウザが最小の幅を決めているので、0 まで縮めてよいことにする
+   （2026-11-06：日時の欄が右と下にはみ出し、ステージの欄が押し縮められて 2 行になった） */
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.two .field{min-width:0}
+.two .pick-btn,.two input{height:44px;min-height:44px;min-width:0}
+.field input[type=datetime-local]{-webkit-appearance:none;appearance:none;display:flex;align-items:center;line-height:normal;padding-top:0;padding-bottom:0;font-variant-numeric:tabular-nums}
+.field input[type=datetime-local]::-webkit-date-and-time-value{text-align:left}
+.pick-btn .pv{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+/* キャラ・ステージ選び：押すと、よく使う順の候補が並び、文字でしぼれる */
+.pick-btn{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;
+  border:1px solid var(--line);background:var(--bg);border-radius:var(--r);padding:8px 12px;min-height:44px;
+}
+.pick-btn::after{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg) translateY(-3px);flex:none}
+.pick-btn.empty{color:var(--muted)}
+.field.open .pick-btn{border-color:var(--text)}
+.pick-pop{grid-column:1/-1;border:1px solid var(--line);border-radius:var(--r);padding:12px;background:var(--bg)}
+.pick-q{width:100%;border:1px solid var(--line);background-color:var(--surface);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;outline:none}
+.pick-q:focus{border-color:var(--line-strong)}
+.pick-q{padding-left:36px}
+.pick-list{display:flex;flex-wrap:wrap;gap:4px;max-height:224px;overflow:auto}
+.pick-list button{border:1px solid var(--line);background:var(--surface);border-radius:var(--r-s);padding:4px 12px;font-size:14px;line-height:1.6}
+.pick-list button:hover{border-color:var(--line-strong)}
+.pick-list button[aria-pressed="true"]{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+.pick-list .none{color:var(--muted);font-size:13px;padding:4px}
+.field.unsure .pick-btn{border-color:var(--check);box-shadow:0 0 0 3px var(--check-soft);background:var(--check-soft)}
+.field.unsure label{color:var(--check)}
+.shots{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.shots figure{margin:0}
+.shots img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:var(--r-s);background:var(--surface-2);display:block}
+.shots figcaption{font-size:11px;color:var(--muted);margin-top:3px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg button{border:1px solid var(--line);background:var(--bg);border-radius:var(--r);padding:12px;font-weight:700}
+.seg button.win[aria-pressed="true"]{background:var(--win);border-color:var(--win);color:var(--surface)}
+.seg button.lose[aria-pressed="true"]{background:var(--lose);border-color:var(--lose);color:var(--surface)}
+.actions{display:flex;gap:12px;margin-top:8px}
+.btn{border:0;border-radius:var(--r);padding:12px 16px;font-weight:700;background:var(--accent);color:var(--accent-text);flex:1}
+.btn.ghost{background:var(--surface-2);color:var(--text);flex:none}
+.btn.danger{background:transparent;color:var(--lose);flex:none;padding:12px 8px}
+.toast{
+  position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translate(-50%,12px);opacity:0;
+  background:var(--accent);color:var(--accent-text);
+  padding:8px 16px;border-radius:var(--r);font-size:14px;transition:transform .25s,opacity .25s;z-index:10;pointer-events:none
+}
+.toast.show{transform:translate(-50%,0);opacity:1}
+.offline{color:var(--lose);font-size:12px}
+.foot{margin-top:32px;color:var(--muted);font-size:13px}
+.foot b{color:var(--text);font-weight:600;user-select:all}
+
+@media (max-width:600px){
+  .summary{grid-template-columns:1fr 1fr}
+  .summary .blk{padding:16px}
+  .summary .recent{grid-column:1/-1;border-left:0;border-top:1px solid var(--line);gap:8px}
+  .summary .recent .streak{justify-content:flex-start}
+  .big{font-size:40px}
+  .dot{width:11px;height:11px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+  .tile{min-height:68px;padding:8px}
+  .tile .pct{font-size:23px}
+  .tile.few .pct{font-size:18px}
+  .me-pick{margin-left:0;width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px;scrollbar-width:none}
+  .me-dd{margin-left:0;width:100%}
+  .me-btn{width:100%}
+  .tile > .face{width:30px;height:30px}
+  .tile.has-face .nm{padding-right:26px}
+  .tile.has-face .rt{margin:0 -3px -2px;padding:3px 8px 2px}
+  .search{max-width:none}
+  .row{grid-template-columns:40px minmax(0,1fr) 48px;padding:8px 12px}
+  .row .vs .me{flex-basis:5.5em}
+  .row .st{display:none}
+  nav.tabs{width:100%}
+  nav.tabs button{flex:1}
+}
+
+/* 左上のアイコン：押すと見た目 A / B が切り替わる（押した手ざわりだけ付ける） */
+.logo-btn{border:0;padding:0;background:none;border-radius:7px;display:block;line-height:0;transition:transform .12s,box-shadow .12s}
+.logo-btn:hover{box-shadow:0 0 0 2px color-mix(in oklab,var(--text) 22%,transparent)}
+.logo-btn:active{transform:scale(.92)}
+
+/* ===== 見た目 B：ゼンゼロ風 =====
+   ゼンゼロのエージェント画面にならう（2026-11-13 kog さんの参考画像）：
+   - 字：日本語は極太のゴシック（Noto Sans JP 900）、数字は太い字。強調する数字だけ斜体
+   - 色：青みのない炭色の地、選んだ物は金に近い黄色、特別な数字は橙
+   - パネル：灰色の太い縁で角を大きく丸め、左上に小さな英字の札（AGENT INFO のような）
+   - 一覧：線で区切らず、1 行ずつ暗い丸太にしてすき間を空けて並べる
+   - 切り替え：選んだ側だけ黄色で、端を斜めに切る
+   - 背景：大きな丸と文字の形をうっすら敷く
+   明るい表示でも暗い画面のまま（ゼンゼロの画面は暗い） */
+:root[data-skin="b"]{
+  --bg:#1c1c1e; --surface:#141416; --surface-2:#1d1d20; --line:#2c2c30; --line-strong:#4a4a50;
+  --text:#f4f4f5; --muted:#b4b4ba; --faint:#77777f;
+  --win:#4fc6da; --lose:#ff7a52; --win-soft:#17363d; --lose-soft:#43251c;
+  --accent:#f6d10f; --accent-text:#111112; --check:#f6a623; --check-soft:#3a2c12;
+  --frame:#0a0a0b; --rim:#38383c; --pill:#18181a; --pill-line:#2e2e32; --hot:#f5a524;
+  --yellow:linear-gradient(180deg,#ffe23a,#f2c700);
+  color-scheme:dark;
+}
+:root[data-skin="b"] body{
+  font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic UI",sans-serif;font-weight:700;
+  background:var(--bg);
+}
+/* 背景：大きな丸と、大きく薄い文字 */
+:root[data-skin="b"] body::before{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(circle at 88% 22%,transparent 0 150px,#232326 151px 235px,transparent 236px),
+    radial-gradient(circle at 88% 22%,#232326 0 70px,transparent 71px),
+    radial-gradient(circle at 6% 92%,transparent 0 120px,#222225 121px 190px,transparent 191px),
+    radial-gradient(circle at 60% 110%,#212124 0 160px,transparent 161px);
+}
+:root[data-skin="b"] body::after{
+  content:"SMASH";position:fixed;right:-2vw;top:38vh;z-index:-1;pointer-events:none;
+  font:italic 900 min(34vw,360px)/1 "Barlow Condensed",sans-serif;color:#202023;letter-spacing:-.02em;
+}
+/* 上の帯：題は極太、自キャラは暗い丸太、選んだ物は黄色 */
+:root[data-skin="b"] header.top h1 .ttl{font-weight:900;letter-spacing:.06em}
+:root[data-skin="b"] .logo{box-shadow:0 0 0 2px var(--rim)}
+:root[data-skin="b"] .chip,
+:root[data-skin="b"] .pick-list button,
+:root[data-skin="b"] .day h3 .chap{
+  background:var(--pill);border:0;border-radius:999px;color:var(--text);font-weight:700;
+  box-shadow:0 0 0 1.5px var(--pill-line),0 0 0 3px var(--frame);
+}
+:root[data-skin="b"] .chip:hover,:root[data-skin="b"] .pick-list button:hover,:root[data-skin="b"] .day h3 .chap:hover{background:#222225}
+:root[data-skin="b"] .pick-list button[aria-pressed="true"]{font-weight:900}
+:root[data-skin="b"] .me-pick{gap:8px;padding:3px}
+:root[data-skin="b"] .me-btn{
+  background:radial-gradient(circle,rgba(255,255,255,.07) .7px,transparent 1px) 0 0/3px 3px,#0c0c0d;border:0;border-radius:999px;color:#fff;font-weight:900;
+  box-shadow:inset 0 0 0 2px #3a3a3e,0 0 0 2px #050506,0 2px 0 2px #050506;padding:8px 46px 8px 18px;
+}
+:root[data-skin="b"] .me-btn::after{border-color:var(--accent)}
+/* 開いた一覧：パネルと同じ灰色の太い枠。上から下へ切り開くように出て、ボタンが 1 つずつ少し遅れて現れる */
+:root[data-skin="b"] .me-list{
+  background:#111113;border:0;border-radius:16px;padding:10px;gap:8px;top:calc(100% + 12px);
+  box-shadow:0 0 0 2px #050506,0 0 0 6px #2a2a2d,0 0 0 8px #050506,0 14px 30px rgba(0,0,0,.55);
+}
+:root[data-skin="b"] .me-list.open{animation:zOpen .18s cubic-bezier(.2,.8,.2,1)}
+@keyframes zOpen{from{clip-path:inset(-10px -10px 100% -10px round 24px)}to{clip-path:inset(-10px -10px -40px -10px round 24px)}}   /* 枠（外側の線）と影も切らないよう、範囲は枠の外まで */
+:root[data-skin="b"] .me-list.open .me-opt{animation:zItem .16s ease-out both;animation-delay:calc(var(--i) * 25ms)}
+@keyframes zItem{from{opacity:0;transform:translateX(10px)}}
+/* 閉じるとき：ボタンが下から順に右へ抜け、一覧は下から上へ切り閉じる（開くときの逆） */
+:root[data-skin="b"] .me-list.closing{animation:zClose .17s cubic-bezier(.6,0,.8,.4) forwards}
+@keyframes zClose{from{clip-path:inset(-10px -10px -40px -10px round 24px)}to{clip-path:inset(-10px -10px 100% -10px round 24px)}}
+:root[data-skin="b"] .me-list.closing .me-opt{animation:zItemOut .12s ease-in both}
+@keyframes zItemOut{to{opacity:0;transform:translateX(10px)}}
+:root[data-skin="b"] .me-opt{
+  background:radial-gradient(circle,rgba(255,255,255,.07) .7px,transparent 1px) 0 0/3px 3px,#0c0c0d;border-radius:999px;color:#fff;font-weight:900;padding:8px 18px;
+  box-shadow:inset 0 0 0 2px #3a3a3e,0 0 0 2px #050506;
+}
+:root[data-skin="b"] .me-opt:hover{filter:brightness(1.18)}
+:root[data-skin="b"] .me-opt[aria-pressed="true"]{background:#0c0c0d}
+/* 題：参考画面の左上の札（黒い丸太にアイコン） */
+:root[data-skin="b"] header.top h1{
+  background:radial-gradient(circle,rgba(255,255,255,.07) .7px,transparent 1px) 0 0/3px 3px,#0c0c0d;border-radius:999px;padding:4px 20px 4px 4px;gap:10px;
+  box-shadow:inset 0 0 0 2px #3a3a3e,0 0 0 2px #050506,0 2px 0 2px #050506;
+}
+:root[data-skin="b"] header.top h1 .ttl{font-size:15px;font-weight:900;letter-spacing:.08em;-webkit-text-stroke:0}
+:root[data-skin="b"] .logo{border-radius:50%;box-shadow:0 0 0 2px #3a3a3e}
+/* キャラの札の並び全体に、薄い黒の背景の枠 */
+:root[data-skin="b"] #grid .grid{background:rgba(255,255,255,.09);border-radius:16px;padding:12px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}   /* 札の並びの背景：薄い白（暗い札が浮いて見える。黒だと札と溶けた） */
+@media (max-width:600px){:root[data-skin="b"] #grid .grid{padding:8px;border-radius:12px}}
+/* パネル（まとめ・記録・板）：灰色の太い縁、角を大きく丸め、左上に小さな英字の札 */
+:root[data-skin="b"] .summary,:root[data-skin="b"] .sheet{
+  border:0;border-radius:14px;background:var(--surface);
+  box-shadow:0 0 0 3px var(--rim),0 0 0 5px var(--frame),0 10px 24px rgba(0,0,0,.45);
+}
+:root[data-skin="b"] .summary{position:relative;isolation:isolate;margin:6px 4px 20px;padding-top:14px}
+:root[data-skin="b"] .summary::before{
+  content:"BATTLE INFO";position:absolute;left:16px;top:5px;font:700 10px/1 "Barlow Condensed",sans-serif;letter-spacing:.18em;color:#5c5c63;
+}
+:root[data-skin="b"] .summary::after{ /* 右下に大きく薄い英字 */
+  content:"RECORD";position:absolute;right:-4px;bottom:-24px;z-index:-1;pointer-events:none;
+  font:italic 900 112px/1 "Barlow Condensed",sans-serif;color:rgba(255,255,255,.035);
+}
+:root[data-skin="b"] .summary .blk + .blk{border-left:1.5px solid var(--pill-line)}
+:root[data-skin="b"] .summary .recent{background:transparent}
+/* 小見出しは暗い丸太の札 */
+:root[data-skin="b"] .summary .cap{
+  align-self:flex-start;background:var(--pill);color:var(--text);border-radius:999px;padding:2px 12px;font-weight:700;
+  box-shadow:0 0 0 1.5px var(--pill-line);
+}
+:root[data-skin="b"] .rate .k{color:var(--muted);font-weight:700}
+:root[data-skin="b"] .big{color:#fff}
+:root[data-skin="b"] .sub{color:var(--muted);font-weight:700}
+/* 切り替え（相性・記録）：暗い丸太の中で、選んだ側だけ黄色、端は斜めに切る */
+/* 入力欄：暗い丸太 */
+:root[data-skin="b"] .search,:root[data-skin="b"] .pick-q,
+:root[data-skin="b"] .field select,:root[data-skin="b"] .field input,:root[data-skin="b"] .field textarea,:root[data-skin="b"] .pick-btn{
+  background-color:var(--pill);border:0;box-shadow:0 0 0 1.5px var(--pill-line),0 0 0 3px var(--frame);
+}
+:root[data-skin="b"] .search,:root[data-skin="b"] .pick-q{border-radius:999px}
+:root[data-skin="b"] .search:focus,:root[data-skin="b"] .pick-q:focus{box-shadow:0 0 0 1.5px var(--accent),0 0 0 3px var(--frame)}
+:root[data-skin="b"] .pick-pop{background:#111113;border:0;border-radius:12px;box-shadow:0 0 0 1.5px var(--pill-line)}
+/* 顔のない札：暗い札、まだ当たっていない相手は空き枠 */
+:root[data-skin="b"] .tile .nm{font-weight:900;font-size:12.5px;letter-spacing:-.05em}
+:root[data-skin="b"] .tile.has-face .nm{padding-right:25px}  /* 顔の左の縁に少しかかってよい（名前を切らない方を優先） */  /* 極太の字は幅を取るので、少し小さく詰める */
+@media (max-width:600px){:root[data-skin="b"] .tile .nm{font-size:12px;letter-spacing:-.06em}:root[data-skin="b"] .tile.has-face .nm{padding-right:24px}}
+:root[data-skin="b"] .tile.few{background:var(--pill);box-shadow:inset 0 0 0 1.5px var(--pill-line)}
+:root[data-skin="b"] .tile.few:hover{background:#222225}
+:root[data-skin="b"] .tile.none{background:transparent;box-shadow:inset 0 0 0 1.5px #29292d}
+:root[data-skin="b"] .tile.none .nm{font-weight:700}
+/* 記録：1 試合ずつ暗い丸太にして、すき間を空けて並べる（ステータスの行と同じ作り） */
+:root[data-skin="b"] .day h3{color:var(--text);font-weight:900}
+:root[data-skin="b"] .day h3::before{content:"";width:4px;height:14px;border-radius:2px;background:var(--accent);flex:none}
+:root[data-skin="b"] .rows{background:transparent;border:0;overflow:visible;display:flex;flex-direction:column;gap:6px}
+:root[data-skin="b"] .row{background:var(--pill);border:0;border-radius:999px;box-shadow:0 0 0 1.5px var(--pill-line)}
+:root[data-skin="b"] .row:first-child{border:0}
+:root[data-skin="b"] .row:hover{background:#222225}
+:root[data-skin="b"] .row .vs .opp{font-weight:900}
+:root[data-skin="b"] .mark{border-radius:999px;font-weight:800}
+:root[data-skin="b"] .mark.win{color:#0f1013}
+:root[data-skin="b"] .row.check{background:#2a2312;box-shadow:0 0 0 1.5px #5a4818}
+:root[data-skin="b"] pre.chapters,:root[data-skin="b"] .notes li{background:var(--pill);border-radius:12px;box-shadow:0 0 0 1.5px var(--pill-line)}
+/* 足すボタン：黒い丸太に白い極太の字、＋は黄色の丸（ゼンゼロの「戦力測定」ボタン） */
+:root[data-skin="b"] .fab{
+  background:#0e0e10;color:#fff;border:0;border-radius:999px;font-weight:900;padding:8px 22px 8px 8px;
+  box-shadow:0 0 0 2px var(--rim),0 0 0 4px var(--frame),0 8px 18px rgba(0,0,0,.5);
+}
+:root[data-skin="b"] .fab span{width:30px;height:30px;border-radius:50%;background:var(--yellow);color:#111112;display:grid;place-items:center;line-height:1;font-weight:900;font-size:22px}
+:root[data-skin="b"] .fab:active{transform:scale(.97)}
+/* 板 */
+:root[data-skin="b"] .sheet{background:var(--surface)}
+@media (max-width:699px){:root[data-skin="b"] .sheet{border-radius:16px 16px 0 0}}
+:root[data-skin="b"] .sheet h2{font-weight:900}
+:root[data-skin="b"] .grab{background:#3a3a40}
+:root[data-skin="b"] .kpis .v{color:#fff}
+:root[data-skin="b"] .kpis .k,:root[data-skin="b"] .sec{font-weight:700}
+:root[data-skin="b"] .btn{border-radius:999px;font-weight:900}
+:root[data-skin="b"] .btn:not(.ghost):not(.danger){background:var(--yellow);color:#111112;box-shadow:0 0 0 3px var(--frame)}
+:root[data-skin="b"] .btn.ghost{background:var(--pill);color:var(--text);box-shadow:0 0 0 1.5px var(--pill-line),0 0 0 3px var(--frame)}
+:root[data-skin="b"] .seg button{border:0;border-radius:999px;background:var(--pill);box-shadow:0 0 0 1.5px var(--pill-line),0 0 0 3px var(--frame);font-weight:900}
+:root[data-skin="b"] .seg button.win[aria-pressed="true"],:root[data-skin="b"] .seg button.lose[aria-pressed="true"]{color:#0f1013}
+:root[data-skin="b"] .sb .track{border-radius:999px;background:var(--pill);box-shadow:0 0 0 1.5px var(--pill-line)}
+:root[data-skin="b"] .sb .fill{border-radius:999px}
+:root[data-skin="b"] .toast{ /* 知らせ（「直しました」など）：題や自キャラのボタンと同じ黒い網目の丸太。色は付けず、細めに */
+  border-radius:999px;font-weight:700;font-size:13px;line-height:1;height:24px;padding:0 16px;display:flex;align-items:center;white-space:nowrap;color:#fff;   /* 高さを決めて字を真ん中に（行の高さ任せだと字が下に寄った） */
+  background:radial-gradient(circle,rgba(255,255,255,.07) .7px,transparent 1px) 0 0/3px 3px,#0c0c0d;
+  box-shadow:inset 0 0 0 2px #3a3a3e,0 0 0 2px #050506,0 2px 0 2px #050506;
+}
+:root[data-skin="b"] .scrim{background:rgba(6,6,8,.62)}
+
+/* ===== 見た目 B の追加：kog さんが用意したゼンゼロの素材（背景の帯・ステータスのパネル・タブ・縦のボタン）を測って作った（2026-11-13） ===== */
+:root[data-skin="b"]{ --accent:#d7dd08; --yellow:linear-gradient(180deg,#e6ec2a,#cdd300); }
+@property --glow{syntax:"<color>";inherits:true;initial-value:#fadb00}
+
+/* 背景の帯：ゼンゼロの背景の流れる帯を、録画の 390 コマから復元した絵（web/band.webp。キャラクターに隠れていた真ん中は、
+   同じ帯の左のフィルムの模様で補った）。画面の左に、縦から 16.4 度傾けて置き、13 秒で一回り上へ流す（録画と同じ速さ・向き） */
+.zbg{display:none}
+:root[data-skin="b"] .zbg{display:block;position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+:root[data-skin="b"] .zband{
+  position:absolute;top:-60vh;left:max(-6vw,-60px);width:73.8vh;height:220vh;transform:rotate(-16.4deg);transform-origin:50% 50%;
+  background:url("band.webp") 0 0/73.8vh 160.6vh repeat-y;opacity:.78;
+  animation:zband 13s linear infinite;
+  -webkit-mask:linear-gradient(90deg,#000 70%,transparent);mask:linear-gradient(90deg,#000 70%,transparent);
+}
+@keyframes zband{to{background-position:0 -160.6vh}}
+@media (prefers-reduced-motion:reduce){:root[data-skin="b"] .zband{animation:none}}
+
+/* パネル（まとめ）：ステータスのパネルにならい、灰色の太い枠＋内側は黒、右上に丸いリールの飾りが枠を割って乗る */
+:root[data-skin="b"] .summary{
+  background:linear-gradient(180deg,#141416,#0f0f11);
+  box-shadow:0 0 0 2px #0b0b0c,0 0 0 7px #2a2a2d,0 0 0 9px #0b0b0c,inset 0 0 0 1px rgba(255,255,255,.05),0 12px 28px rgba(0,0,0,.5);
+  margin:20px 10px 26px;overflow:visible;
+}
+:root[data-skin="b"] .summary::after{right:10px;bottom:4px;line-height:.74;font-size:96px}   /* 大きな英字は枠の中に収める */
+:root[data-skin="b"] .summary::before{top:-11px;left:22px;color:#55555c;font-size:10px}
+:root[data-skin="b"] .summary .recent{position:static}
+
+@media (max-width:600px){:root[data-skin="b"] .summary .recent .streak{gap:3px}:root[data-skin="b"] .summary{margin:14px 6px 22px}}
+/* ボタン：黒い丸太に細かい網目、内側に灰色の縁（縦のボタンの素材にならう） */
+:root[data-skin="b"] .chip,
+:root[data-skin="b"] .pick-list button,
+:root[data-skin="b"] .day h3 .chap,
+:root[data-skin="b"] .seg button,
+:root[data-skin="b"] .btn.ghost{
+  background:radial-gradient(circle,rgba(255,255,255,.07) .7px,transparent 1px) 0 0/3px 3px,#0c0c0d;
+  box-shadow:inset 0 0 0 2px #3a3a3e,0 0 0 2px #050506,0 2px 0 2px #050506;color:#fff;font-weight:900;
+}
+/* 大きいボタンも両端丸い丸太（右上の金色の角は丸みと合わずノイズに見えたので外し、右端の角ばりもやめた。2026-11-13 kog さん） */
+:root[data-skin="b"] .fab,:root[data-skin="b"] .btn:not(.danger){border-radius:999px}
+:root[data-skin="b"] .btn:not(.danger){position:relative}   /* 「試合を足す」は右下に固定のまま（relative にすると固定が外れて、ずれていた） */
+/* タブ（相性・記録）：それぞれが「外側が丸く、内側が斜めに切れた」形の部品。灰色の縁・黒い中身・光の 3 枚が、どれもこの形に沿う
+   （2026-11-13 kog さん：見た目の形と別にボタンの形があるのはおかしい。光は見えている形にぴったり沿わせる） */
+:root[data-skin="b"] nav.tabs{background:none;box-shadow:none;padding:0;gap:0;border-radius:0}
+:root[data-skin="b"] nav.tabs button[role="tab"]{
+  --S:14px;position:relative;isolation:isolate;background:none;box-shadow:none;color:#fff;font-weight:900;padding:7px 30px;
+}  /* box-shadow:none … A 用の四角い細い縁が残り、斜めの切れ目の外（すき間）に縦線と横線が見えていた */
+/* 形：外側の丸み（border-radius）と内側の斜めの切れ目（--zshape）。縁・中身・光の 3 枚がこの形を使う */
+:root[data-skin="b"] nav.tabs button[role="tab"]:first-child{border-radius:999px 0 0 999px;--zshape:polygon(0 0,100% 0,calc(100% - var(--S)) 100%,0 100%);padding-right:38px}
+:root[data-skin="b"] nav.tabs button[role="tab"]:last-child{border-radius:0 999px 999px 0;--zshape:polygon(var(--S) 0,100% 0,100% 100%,0 100%);padding-left:38px;margin-left:calc(6px - var(--S))}
+:root[data-skin="b"] nav.tabs button[role="tab"]::after{ /* 灰色の縁 */
+  content:"";position:absolute;inset:0;z-index:-3;border-radius:inherit;clip-path:var(--zshape);background:#3a3a3e;
+}
+:root[data-skin="b"] nav.tabs .tin{ /* 黒い中身（縁の 2px 内側） */
+  display:block;
+  position:absolute;inset:2px;z-index:-2;border-radius:inherit;clip-path:var(--zshape);
+  background:radial-gradient(circle,rgba(255,255,255,.07) .7px,transparent 1px) 0 0/3px 3px,#0c0c0d;
+}
+/* 光：ふだんは縁まで含めた形と同じ大きさ。拍動では形を保ったままひと回り大きく外へ広がる
+   （丸みはそのまま大きくなり、斜めの切れ目は角度を保つよう、広がった分だけ横の幅を足す。楕円にはしない） */
+:root[data-skin="b"] nav.tabs button[role="tab"]::before{inset:calc(0px - var(--pad))}   /* 光は縁まで含めた形いっぱい */
+:root[data-skin="b"] nav.tabs button[role="tab"]:is(.zhold,.zlit,[aria-selected="true"])::after{opacity:0}   /* 光っている間は灰色の縁を隠す（光のまわりに細い線が残って見えた） */
+:root[data-skin="b"] nav.tabs button[role="tab"]:first-child::before{clip-path:polygon(0 0,100% 0,calc(100% - var(--S) - var(--pad) * .78) 100%,0 100%)}
+:root[data-skin="b"] nav.tabs button[role="tab"]:last-child::before{clip-path:polygon(calc(var(--S) + var(--pad) * .78) 0,100% 0,100% 100%,0 100%)}
+
+/* 光の層：光はボタンとは別の層（::before）にして、ボタンと同じ形（角の丸み・タブの斜めの切れ目）で光らせる。
+   押している間・選んでいる間は、黄色⇔黄緑にゆっくり変わり（1.7 秒）、光の層だけが 0.8 秒ごとにふくらむ（拍動）。
+   0.24 秒かけて、小さい所から徐々に加速して 7px まで広がり、最大から 0.28 秒かけて徐々に減速して戻る（2026-11-13 kog さん：途中で急に大きくするコマがあると、そこで一度止まって見えた）。間隔 0.8 秒。右へ行くほど暗い */
+@property --pad{syntax:"<length>";inherits:false;initial-value:0px}
+:root[data-skin="b"] :is(.btn,.seg button,.day h3 .chap,.pick-list button,nav.tabs button,.me-btn,.me-opt){position:relative;isolation:isolate}
+:root[data-skin="b"] .fab{isolation:isolate}
+:root[data-skin="b"] :is(.fab,.btn,.seg button,.day h3 .chap,.pick-list button,nav.tabs button,.me-btn,.me-opt)::before{
+  content:"";position:absolute;inset:calc(var(--pad) * -1);z-index:-1;border-radius:inherit;clip-path:var(--zclip,none);
+  background:linear-gradient(90deg,var(--glow) 0 40%,color-mix(in srgb,var(--glow) 55%,#000) 100%);opacity:0;pointer-events:none;
+}
+:root[data-skin="b"] :is(.zhold,.zlit,nav.tabs button[aria-selected="true"],.pick-list button[aria-pressed="true"],.me-opt[aria-pressed="true"])::before{
+  opacity:1;animation:zglow 1.7s ease-in-out infinite,zpulse .8s linear infinite;
+}
+:root[data-skin="b"] :is(.zhold,.zlit,nav.tabs button[aria-selected="true"],.pick-list button[aria-pressed="true"],.me-opt[aria-pressed="true"]){color:#111112!important;filter:none!important}
+/* 勝ち・負けの選択は、その色のまま拍動だけ */
+:root[data-skin="b"] .seg button[aria-pressed="true"]{background:#0c0c0d!important}
+:root[data-skin="b"] .seg button.win[aria-pressed="true"]::before{--glow:var(--win);opacity:1;animation:zpulse .8s linear infinite}
+:root[data-skin="b"] .seg button.lose[aria-pressed="true"]::before{--glow:var(--lose);opacity:1;animation:zpulse .8s linear infinite}
+@keyframes zglow{0%,100%{--glow:#fadb00}50%{--glow:#a0bf00}}
+@keyframes zpulse{0%{--pad:0px;animation-timing-function:cubic-bezier(.55,0,.9,.45)}30.000%{--pad:7px;animation-timing-function:cubic-bezier(.1,.55,.45,1)}65.000%{--pad:0px}100%{--pad:0px}}
+@media (prefers-reduced-motion:reduce){:root[data-skin="b"] :is(.fab,.btn,.seg button,.day h3 .chap,.pick-list button,nav.tabs button)::before{animation:none!important}}
+/* 離したとき：光の層が 1 コマ（33ms）ずつ消える・点く・消える・点く・消える（決まった合図）。
+   前は setTimeout でクラスを付け外ししていて、相性の画面（炎が動いている）でスマホが忙しいとタイマーが詰まり、
+   「記録」を押したときだけ点滅が一瞬で終わって見えた（2026-11-17）。CSS のアニメーションなら時刻どおりに進む */
+:root[data-skin="b"] .zblink::before{opacity:0;--pad:0px;will-change:opacity;animation:zblink .165s linear forwards!important}
+@keyframes zblink{
+  0%{opacity:0;animation-timing-function:steps(1,end)}20%{opacity:1;animation-timing-function:steps(1,end)}
+  40%{opacity:0;animation-timing-function:steps(1,end)}60%{opacity:1;animation-timing-function:steps(1,end)}80%,100%{opacity:0}
+}
+
+/* 見た目 A / B を切り替えるときの画面遷移（kog さんが用意したゼンゼロの遷移の録画を測って作った。2026-11-13）
+   帯が開く → 「<」形に切れた赤い板が右から加速して流れ込み、画面を覆う（ここで見た目が切り替わる）→ 板が左へ抜ける
+   → 黒い帯だけ残って字が一度ちらつく → 帯が細くなって消える。全部で 1.1 秒。赤は板だけ、帯は黒に白い字 */
+.xfer{position:fixed;inset:0;z-index:60;display:none;overflow:hidden;pointer-events:auto}
+.xfer.on{display:block}
+.xfer-move{position:absolute;top:0;bottom:0;left:0;will-change:transform}
+.xfer-move i{position:absolute;top:0;bottom:0;display:block}
+/* 明るい赤の板。細い斜めの線（録画の板の質感） */
+.xfer-move .lt{
+  background:repeating-linear-gradient(45deg,rgba(60,0,6,.16) 0 2px,transparent 2px 6px),linear-gradient(180deg,#e8262f,#d61c25);
+}
+/* 後ろの暗い赤の板 */
+.xfer-move .dk{
+  background:repeating-linear-gradient(45deg,rgba(0,0,0,.2) 0 2px,transparent 2px 6px),linear-gradient(180deg,#8f1119,#7a0c13);
+}
+/* 真ん中の黒い帯に、間を大きく空けた白い斜体の字 */
+.xfer-band{
+  position:absolute;left:0;right:0;top:50%;height:max(30px,5.3vh);margin-top:calc(max(30px,5.3vh) / -2);
+  background:#050506;display:grid;place-items:center;transform-origin:50% 50%;
+}
+.xfer-band span{
+  color:#fff;font:italic 800 max(12px,2.2vh)/1 "Barlow Condensed","Noto Sans JP",sans-serif;
+  letter-spacing:1.15em;padding-left:1.15em;white-space:nowrap;
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+/* 見るだけの写し（GitHub Pages）：足す・直すはできないので、その入口を出さない */
+html.static #addBtn{display:none}
+html.static button.row{cursor:default}
+</style>
+</head>
+<body>
+<div class="zbg" aria-hidden="true"><div class="zband"></div></div>
+<div class="wrap">
+  <header class="top">
+    <h1><button class="logo-btn" id="skinBtn" type="button" aria-label="見た目を切り替える（A / B）"><img class="logo" src="favicon.png" alt=""></button><span class="ttl">スマブラ戦績</span></h1>
+    <span id="offline" class="offline" hidden>PC につながっていません</span>
+    <div class="me-dd" id="meDD"><button type="button" class="me-btn" id="meBtn" aria-haspopup="listbox" aria-expanded="false"><span id="meLabel">ALL</span></button><div class="me-list" id="meList" role="listbox" aria-label="自分のキャラ" hidden></div></div>
+  </header>
+
+  <section class="summary" id="summary"></section>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="matchups" aria-selected="true"><i class="tin" aria-hidden="true"></i>相性</button>
+    <button role="tab" data-tab="log" aria-selected="false"><i class="tin" aria-hidden="true"></i>記録</button>
+  </nav>
+
+  <section id="matchups">
+    <div class="toolbar">
+      <input class="search" id="search" type="search" aria-label="相手キャラを探す" autocomplete="off">
+    </div>
+    <div id="grid"></div>
+  </section>
+
+  <section id="log" hidden></section>
+
+  <footer class="foot" id="foot" hidden>スマホでは同じ Wi-Fi で <b id="phoneUrl"></b> を開く</footer>
+</div>
+
+<button class="fab" id="addBtn"><span>+</span>試合を足す</button>
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div id="sheetBody"></div></div>
+<div class="toast" id="toast"></div>
+<div class="xfer" id="xfer" aria-hidden="true"><div class="xfer-move"><i class="dk"></i><i class="lt"></i></div><div class="xfer-band"><span>NOW LOADING...</span></div></div>
+
+<script>
+const S = { records: [], fighters: [], stages: [], version: null, me: "ALL", tab: "matchups", q: "" };
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const FEW = 3; // これより少ない試合数は、色を付けずに控えめに出す
+
+try { S.me = localStorage.getItem("smash.me") || "ALL"; } catch {}
+// 見た目：A = プレーン、B = ゼンゼロ風。左上のアイコンを押すと切り替わり、端末ごとに覚える
+S.skin = "b";
+try { S.skin = localStorage.getItem("smash.skin") === "a" ? "a" : "b"; } catch {}
+document.documentElement.dataset.skin = S.skin;
+
+const shortOf = n => (S.fighters.find(f => f.name === n) || {}).short || n;
+const pct = (w, n) => n ? Math.round(w / n * 100) : null;
+// 読み取れていない（キャラが空の）試合は、直されるまで集計に入れない
+const mine = () => S.records.filter(r => r.me && r.opp && (S.me === "ALL" || r.me === S.me));
+const wins = rs => rs.filter(r => r.result === "win").length;
+const byTime = (a, b) => a.at < b.at ? -1 : a.at > b.at ? 1 : 0;
+// 夜ふかしの対戦を前の日にまとめるため、1日の区切りは朝 6 時
+const dayOf = at => { const t = new Date(new Date(at).getTime() - 6 * 36e5); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`; };
+const nowLocal = () => new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 19);
+const fmtDay = d => { const t = new Date(d + "T00:00:00"); return `${t.getMonth()+1}月${t.getDate()}日（${"日月火水木金土"[t.getDay()]}）`; };
+const fmtDate = at => { const t = new Date(at); return `${t.getFullYear()}/${t.getMonth()+1}/${t.getDate()}`; };
+
+// 見るだけの写し（GitHub Pages。PC が切れていてもスマホで見る。2026-11-19）は、PC のサーバーの代わりに
+// 同じフォルダの data.json を読む。写しを作るとき（server/publish.py）に、この印のメタタグが入る
+const STATIC = !!document.querySelector('meta[name="smash-static"]');
+if (STATIC) document.documentElement.classList.add("static");
+async function load() {
+  try {
+    const d = await (await fetch(STATIC ? "data.json" : "/api/data", { cache: "no-store" })).json();
+    Object.assign(S, { records: d.records.sort(byTime), fighters: d.fighters, stages: d.stages, version: d.version });
+    $("#offline").hidden = true;
+    const onPc = ["localhost", "127.0.0.1"].includes(location.hostname);
+    $("#foot").hidden = !onPc || !d.phoneUrl;
+    $("#phoneUrl").textContent = d.phoneUrl || "";
+    render();
+  } catch { $("#offline").hidden = false; }
+}
+async function poll() {
+  try {
+    const v = (await (await fetch(STATIC ? "data.json" : "/api/version", { cache: "no-store" })).json()).version;
+    $("#offline").hidden = true;
+    if (v !== S.version) await load();
+  } catch { $("#offline").hidden = false; }
+}
+
+function render() { renderMe(); renderSummary(); renderTabs(); S.tab === "matchups" ? renderGrid() : renderLog(); }
+
+function renderMe() {
+  const used = {};
+  S.records.forEach(r => { if (r.me) used[r.me] = (used[r.me] || 0) + 1; });
+  const list = Object.keys(used).sort((a, b) => used[b] - used[a]);
+  if (S.me !== "ALL" && !used[S.me]) S.me = "ALL";
+  // 自キャラはプルダウンで選ぶ（よく使う順。2026-11-13 kog さん：並べると上が長くなる）
+  $("#meLabel").textContent = S.me;
+  $("#meList").innerHTML = ["ALL", ...list]
+    .map((v, i) => `<button type="button" class="me-opt" role="option" data-me="${esc(v)}" aria-pressed="${S.me === v}" style="--i:${i}">${esc(v)}</button>`).join("");
+}
+
+function renderSummary() {
+  const rs = mine(), w = wins(rs), n = rs.length;
+  const today = dayOf(nowLocal());
+  const last = rs.length ? dayOf(rs[rs.length - 1].at) : null;
+  const sess = rs.filter(r => dayOf(r.at) === last);
+  const sw = wins(sess);
+  const recent = rs.slice(-20).reverse();  // 左がいちばん新しい
+  // 通算と今日は同じ形（勝率を大きく、その下に勝ち・負けの数）にそろえる
+  const block = (cap, ww, nn, cls) => `
+    <div class="blk ${cls}">
+      <span class="cap">${cap}</span>
+      <div class="rate"><span class="k">勝率</span><span class="big num">${nn ? pct(ww, nn) : "–"}<small>%</small></span></div>
+      <div class="sub"><span class="w"><b>${ww}</b> 勝</span> <span class="l"><b>${nn - ww}</b> 敗</span></div>
+    </div>`;
+  $("#summary").innerHTML =
+    block("通算", w, n, "tot") +
+    block(last ? (last === today ? "今日" : fmtDay(last)) : "今日", sw, sess.length, "day") + `
+    <div class="blk recent">
+      <span class="cap">直近 ${recent.length} 試合</span>
+      <div class="streak">${recent.map((r, i) => `<span class="dot ${r.result}${i === 0 ? " latest" : ""}"></span>`).join("")}</div>
+    </div>`;
+}
+
+function renderTabs() {
+  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === S.tab));
+  $("#matchups").hidden = S.tab !== "matchups";
+  $("#log").hidden = S.tab !== "log";
+}
+
+function oppStats() {
+  const m = {};
+  mine().forEach(r => {
+    const s = m[r.opp] ||= { n: 0, w: 0, notes: 0 };
+    s.n++; if (r.result === "win") s.w++; if (r.note) s.notes++;
+  });
+  return m;
+}
+
+// メモがある相手の印（ノートの形）
+const MEMO_ICON = `<svg class="memo" viewBox="0 0 16 16" aria-label="メモあり" role="img"><path d="M3 2.5h7l3 3v8H3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M5.5 8h5M5.5 10.8h3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`;
+
+// 勝率の段階（0 苦手 … 3 得意）。境目は 45・55・65%（緑の笑顔 = 五分。40% で笑顔だと負け越しなのに機嫌よく見えた）
+const TIER_AT = [.45, .55, .65];
+const tierOf = s => (!s || s.n < FEW) ? -1 : TIER_AT.filter(x => s.w / s.n >= x).length;
+
+// 段階ごとの顔。暗い丸に光る縁、表情は縁と同じ色の線で描く。いちばん上だけ後ろに炎
+function face(t, dir = "up") {
+  // ゼンゼロの信頼度の顔にならって、顔は色で塗り、表情は暗い線。外側に明るい輪と暗い縁（シールのような厚み）
+  const c = `var(--t${t})`, ink = "#141a26";
+  return `<svg class="face" viewBox="0 0 40 40" style="--fc:${c}" overflow="visible" aria-hidden="true">${t === 3 ? fire(dir) : ""}
+    <circle cx="19.5" cy="21.5" r="15.6" fill="${ink}"/>
+    <circle cx="19.5" cy="21.5" r="14.2" style="fill:color-mix(in srgb,${c} 45%,#fff)"/>
+    <circle cx="19.5" cy="21.5" r="12" style="fill:${c}"/>
+    ${featOf(t, ink, "#ff8a5c")}</svg>`;
+}
+
+// 札の地に大きく薄く敷く顔（ゼンゼロの招待状の、地に並んだ大きな顔の模様にならう）
+function watermark(t) {
+  const ink = "currentColor";   // 色は札の CSS（.wm）で段階の色をうっすら
+  return `<span class="wmc"><svg class="wm" viewBox="0 0 40 40" aria-hidden="true"><circle cx="19.5" cy="21.5" r="13" fill="none" stroke="${ink}" stroke-width="2.4"/>${featOf(t, ink, "transparent")}</svg></span>`;
+}
+
+// 炎（ゼンゼロの信頼度のいちばん上の顔にならう）。kog さんが録画から用意した灰色の 33 枚（1 枚目を外して 32 枚）に、tools/make_fire.py で
+// 色と縁取りを付けて 1 枚に並べた絵（web/fire.png）を、1.067 秒でコマ送りする。顔はページの顔を上に重ねる
+const FIRE = { frames: 32, dur: 1.067, w: 369, h: 237, cx: 121.0, cy: 134.3, r: 76.5 };   // 1 コマの大きさと、絵の中の顔の中心・半径
+// 札の中では、右の札にかからないよう上へ向け、少し小さく（根元は顔の後ろに隠れる）
+const FIRE_DIR = { right: { rot: 0, sc: 1 }, up: { rot: -48, sc: .8 } };
+function fire(dir) {
+  const { rot, sc } = FIRE_DIR[dir], k = 15.6 / FIRE.r;            // 絵の顔の半径を、ページの顔の縁（15.6）に合わせる
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const begin = (-Math.floor(Math.random() * FIRE.frames) * FIRE.dur / FIRE.frames).toFixed(3);   // 札ごとに始まりをずらす
+  const xs = Array.from({ length: FIRE.frames }, (_, i) => -i * FIRE.w).join(";");
+  const anim = still ? "" : `<animate attributeName="x" values="${xs}" dur="${FIRE.dur}s" begin="${begin}s" calcMode="discrete" repeatCount="indefinite"/>`;
+  return `<g class="fire" transform="rotate(${rot} 19.5 21.5) translate(19.5 21.5) scale(${sc}) translate(-19.5 -21.5)">
+    <svg x="${(19.5 - FIRE.cx * k).toFixed(2)}" y="${(21.5 - FIRE.cy * k).toFixed(2)}" width="${(FIRE.w * k).toFixed(2)}" height="${(FIRE.h * k).toFixed(2)}" viewBox="0 0 ${FIRE.w} ${FIRE.h}">
+      <image href="fire.png" width="${FIRE.w * FIRE.frames}" height="${FIRE.h}">${anim}</image></svg></g>`;
+}
+
+function featOf(t, ink, tongue) {
+  const ln = `fill="none" stroke="${ink}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"`;
+  const feat = [
+    `<path d="M13.5 19.5h4.2M21.3 19.5h4.2M15.8 26h7.4" ${ln}/>`,
+    `<path d="M15.8 17v3.4M23.2 17v3.4M14.8 24q4.7 4.2 9.4 0" ${ln}/>`,
+    `<path d="M15.8 16.5v3.4M23.2 16.5v3.4" ${ln}/><path d="M13.8 22.8h11.4q0 5.9-5.7 5.9t-5.7-5.9z" fill="${ink}"/>`,
+    `<path d="M13.4 16l3.4 2.1-3.4 2.1M25.6 16l-3.4 2.1 3.4 2.1" ${ln}/><path d="M13 22.6h13q0 6.6-6.5 6.6t-6.5-6.6z" fill="${ink}"/><path d="M16.6 27.6q2.9-2.2 5.8 0q-1.4 1.6-2.9 1.6t-2.9-1.6z" fill="${tongue}"/>`,
+  ][t];
+  return feat;
+}
+
+function tileStyle(s) {
+  if (S.skin === "a") {
+    if (!s || s.n < FEW) return "";
+    // A：色の濃さ = 勝率の偏り × 試合数の確かさ（3-0 が 12-2 より濃く見えないように）
+    const p = s.w / s.n, d = Math.abs(p - .5) * 2 * Math.min(1, .4 + s.n / 15);
+    const c = p >= .5 ? "var(--win)" : "var(--lose)";
+    return `--tile-bg:color-mix(in oklab, ${c} ${Math.round(12 + d * 48)}%, var(--surface))`;
+  }
+  const t = tierOf(s);
+  return t < 0 ? "" : `--tc:var(--t${t})`;
+}
+
+function tile(f, s) {
+  const t = S.skin === "a" ? -1 : tierOf(s);
+  const cls = !s ? "none" : s.n < FEW ? "few" : t >= 0 ? "has-face" : "";
+  return `<button class="tile ${cls}" data-opp="${esc(f.name)}" style="${tileStyle(s)}" title="${esc(f.name)}">
+    ${t >= 0 ? watermark(t) + face(t) : s && s.notes ? MEMO_ICON : ""}
+    <span class="nm">${esc(f.short)}</span>
+    <span class="rt">${!s ? ""
+      : s.n < FEW ? `<span class="pct num">${s.w}-${s.n - s.w}</span>`
+      : `<span class="pct num">${pct(s.w, s.n)}<small>%</small></span><span class="wl">${t >= 0 && s.notes ? MEMO_ICON : ""}${s.w}-${s.n - s.w}</span>`}</span>
+  </button>`;
+}
+
+function renderGrid() {
+  const st = oppStats(), q = S.q.trim();
+  const hit = f => !q || f.name.includes(q) || f.short.includes(q);
+  const fs = S.fighters.filter(hit);
+  // ゲームと同じ番号順（いつも同じ場所にあるので目で探せる）。当たっていない相手も、薄い枠で同じ並びに置く
+  const all = fs.slice().sort((a, b) => a.order - b.order);
+  $("#grid").innerHTML = all.length ? `<div class="grid">${all.map(f => tile(f, st[f.name])).join("")}</div>` : `<div class="empty">見つかりません</div>`;
+}
+
+function renderLog() {
+  const rs = mine().slice().reverse();
+  const checks = S.records.filter(r => r.status === "check" && (S.me === "ALL" || !r.me || r.me === S.me)).reverse();
+  const days = {};
+  rs.filter(r => r.status !== "check").forEach(r => (days[dayOf(r.at)] ||= []).push(r));
+  const row = r => `<button class="row ${r.status === "check" ? "check" : ""}" data-id="${r.id}">
+      <span class="tm">${r.at.slice(11, 16)}</span>
+      <span class="vs"><span class="line">${S.me === "ALL" || !r.me ? `<span class="me">${r.me ? esc(shortOf(r.me)) : "？"}</span><span class="x num">VS</span>` : ""}<span class="opp">${r.opp ? esc(r.opp) : "？"}</span></span>${r.note ? `<span class="note">${esc(r.note)}</span>` : ""}</span>
+      <span class="st">${esc(r.stage)}</span>
+      <span class="mark num ${r.result}">${r.result === "win" ? "WIN" : "LOSE"}</span>
+    </button>`;
+  let h = "";
+  if (checks.length) h += `<div class="day checks"><div class="rows">${checks.map(row).join("")}</div></div>`;
+  for (const [d, list] of Object.entries(days)) {
+    const w = wins(list);
+    const chap = list.some(r => r.rec && r.rec.recStart) ? `<button class="chap" data-chap="${d}">チャプター</button>` : "";
+    h += `<div class="day"><h3>${fmtDay(d)}<span class="dwl"><span class="w">${w}勝</span> <span class="l">${list.length - w}敗</span></span>${chap}</h3><div class="rows">${list.map(row).join("")}</div></div>`;
+  }
+  $("#log").innerHTML = h || `<div class="empty">まだ試合がありません</div>`;
+}
+
+/* チャプター：録画ごとに、YouTube の概要欄に貼れる形にする（最初は 0:00 が要る） */
+const hms = sec => { sec = Math.max(0, Math.floor(sec)); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s2 = String(sec % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${s2}` : `${m}:${s2}`; };
+function showChapters(day) {
+  const recs = S.records.filter(r => r.rec && r.rec.recStart && r.me && r.opp && dayOf(r.at) === day).sort(byTime);
+  const groups = {};
+  recs.forEach(r => (groups[r.rec.recStart] ||= []).push(r));
+  const blocks = Object.entries(groups).map(([start, rs]) => {
+    const lines = ["0:00 はじまり", ...rs.map(r => `${hms(Math.max(10, r.rec.recT))} ${r.me} vs ${r.opp} ${r.result === "win" ? "勝ち" : "負け"}`)];
+    const text = lines.join(String.fromCharCode(10));
+    const m = start.match(/ (\d{2})-(\d{2})/);
+    const label = m ? `${+m[1]}:${m[2]} からの録画` : esc(start);
+    return `<div class="sec">${label}</div><pre class="chapters">${esc(text)}</pre>
+      <div class="actions"><button type="button" class="btn" data-copy="${esc(text)}">写す</button></div>`;
+  }).join("");
+  openSheet(`<h2>チャプター</h2>
+    ${blocks}`);
+}
+
+/* 板 */
+function openSheet(html) { $("#sheetBody").innerHTML = html; $("#sheet").scrollTop = 0; $("#sheet").classList.add("open"); $("#scrim").classList.add("open"); document.body.classList.add("sheet-open"); }
+function closeSheet() { $("#sheet").classList.remove("open"); $("#scrim").classList.remove("open"); document.body.classList.remove("sheet-open"); }
+
+/* 板を下にスワイプして閉じる（スマホの下から出る板のとき）。つまみか見出しを掴んで下へ。
+   指の動きに板がついてきて、ある程度下げるか、素早く払えば閉じる。足りなければ元に戻る */
+(() => {
+  const sheet = $("#sheet"), scrim = $("#scrim");
+  let y0 = 0, t0 = 0, dy = 0, on = false;
+  const bottomSheet = () => matchMedia("(max-width:699px)").matches;
+  sheet.addEventListener("pointerdown", e => {
+    if (!bottomSheet() || !e.target.closest(".grab, .sheet h2")) return;
+    on = true; y0 = e.clientY; t0 = performance.now(); dy = 0;
+    sheet.classList.add("dragging"); sheet.setPointerCapture(e.pointerId);
+  });
+  sheet.addEventListener("pointermove", e => {
+    if (!on) return;
+    dy = Math.max(0, e.clientY - y0);
+    sheet.style.transform = `translate(-50%, ${dy}px)`;
+    scrim.style.opacity = String(Math.max(0, 1 - dy / (sheet.offsetHeight || 1)));
+  });
+  const end = () => {
+    if (!on) return;
+    on = false;
+    const fast = dy / Math.max(1, performance.now() - t0) > .5;
+    sheet.classList.remove("dragging");
+    sheet.style.transform = ""; scrim.style.opacity = "";
+    if (dy > Math.min(140, sheet.offsetHeight * .25) || (fast && dy > 30)) closeSheet();
+  };
+  sheet.addEventListener("pointerup", end);
+  sheet.addEventListener("pointercancel", end);
+})();
+function toast(t) { const e = $("#toast"); e.textContent = t; e.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove("show"), 1800); }
+
+function showOpp(name) {
+  const rs = mine().filter(r => r.opp === name);
+  const w = wins(rs), f = S.fighters.find(x => x.name === name) || { name };
+  const recent = rs.slice(-10).reverse();  // 左がいちばん新しい（上のまとめと同じ向き）
+  const stg = {};
+  rs.forEach(r => { const s = stg[r.stage || "不明"] ||= { n: 0, w: 0 }; s.n++; if (r.result === "win") s.w++; });
+  const notes = rs.filter(r => r.note).reverse();
+  openSheet(`
+    <h2>${S.me === "ALL" ? "" : `<span class="me">${esc(S.me)}</span><span class="x num">VS</span>`}<span>${esc(f.name)}</span></h2>
+    ${rs.length ? `
+    <div class="kpis">
+      ${rs.length >= FEW ? `<div><span class="v num">${pct(w, rs.length)}%</span><span class="k">${S.me === "ALL" ? "通算勝率" : "勝率"}</span></div>` : ""}
+      <div><span class="v num"><span class="w">${w}</span>-<span class="l">${rs.length - w}</span></span><span class="k"><span class="w">勝</span>-<span class="l">敗</span></span></div>
+      <div class="last"><span class="k">最後に当たった日</span><span class="d">${fmtDate(rs[rs.length - 1].at)}</span></div>
+    </div>
+    <div class="sec">最近 ${recent.length} 試合</div>
+    <div class="streak" style="justify-content:flex-start">${recent.map((r, i) => `<span class="dot ${r.result}${i === 0 ? " latest" : ""}" title="${esc(fmtDate(r.at))} ${esc(r.stage)}"></span>`).join("")}</div>
+    <div class="sec">ステージ</div>
+    <div class="stage-bars">${Object.entries(stg).sort((a, b) => b[1].n - a[1].n).map(([s, v]) =>
+      `<div class="sb"><span>${esc(s)}</span><span class="track"><span class="fill" style="display:block;width:${v.w / v.n * 100}%"></span></span><span class="n">${v.w}-${v.n - v.w}</span></div>`).join("")}</div>
+    ` : ""}
+    ${notes.length ? `<div class="sec">対策メモ</div>
+      <ul class="notes">${notes.map(r => `<li><span class="d">${esc(fmtDate(r.at))}・${esc(shortOf(r.me))}・${r.result === "win" ? "WIN" : "LOSE"}</span>${esc(r.note)}</li>`).join("")}</ul>` : ""}
+  `);
+}
+
+function editForm(r) {
+  const isNew = !r.id;
+  const at = (r.at || nowLocal()).slice(0, 16);
+  const uns = k => (r.status === "check" && (r.unsure || []).includes(k)) ? "unsure" : "";
+  const field = (key, id, label, value) => `<div class="field ${uns(key)}">
+      <label>${label}</label>
+      <button type="button" class="pick-btn ${value ? "" : "empty"}" data-pick="${key}" title="${esc(value || "")}"><span class="pv">${value ? esc(value) : "選んでください"}</span></button>
+      <input type="hidden" id="${id}" value="${esc(value || "")}">
+    </div>`;
+  const shots = r.source === "auto" && r.id ? `<div class="shots">
+      <figure><img src="/pending/${r.id}/vs.jpg" alt="" onerror="this.parentNode.remove()"></figure>
+      <figure><img src="/pending/${r.id}/stage.jpg" alt="" onerror="this.parentNode.remove()"></figure>
+    </div>` : "";
+  openSheet(`
+    <h2>${isNew ? "試合を足す" : r.status === "check" ? "読み取りを確かめる" : "試合を直す"}</h2>
+    ${shots}
+    <form class="edit" id="editForm" data-id="${r.id || ""}">
+      <div class="seg" id="seg">
+        <button type="button" class="win" data-r="win" aria-pressed="${r.result === "win"}">勝ち</button>
+        <button type="button" class="lose" data-r="lose" aria-pressed="${r.result === "lose"}">負け</button>
+      </div>
+      <div class="two">
+        ${field("me", "fMe", "自分", r.me)}
+        ${field("opp", "fOpp", "相手", r.opp)}
+      </div>
+      <div class="two">
+        ${field("stage", "fStage", "ステージ", r.id ? r.stage : (r.stage || "終点"))}
+        <div class="field"><label for="fAt">日時</label><input id="fAt" type="datetime-local" value="${esc(at)}"></div>
+      </div>
+      <div class="field"><label for="fNote">対策メモ</label><textarea id="fNote">${esc(r.note)}</textarea></div>
+      <div class="actions">
+        ${isNew ? "" : `<button type="button" class="btn danger" id="delBtn">消す</button>`}
+        <button type="submit" class="btn">${r.status === "check" ? "これで正しい" : "保存"}</button>
+      </div>
+    </form>`);
+  const form = $("#editForm");
+  let result = r.result || "";
+  form.querySelectorAll("#seg button").forEach(b => b.onclick = () => {
+    result = b.dataset.r; form.querySelectorAll("#seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  });
+  form.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => openPicker(b));
+  // 日時の欄は、どこを押しても選ぶ画面が開くように（カレンダーの印を消したので）
+  $("#fAt").onclick = e => { try { e.target.showPicker(); } catch {} };
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const shake = el => el.animate([{ transform: "translateX(0)" }, { transform: "translateX(-6px)" }, { transform: "translateX(6px)" }, { transform: "translateX(0)" }], 240);
+    if (!result) return shake($("#seg"));
+    const missing = ["#fMe", "#fOpp", "#fStage"].find(id => !$(id).value);
+    if (missing) { const b = $(missing).closest(".field").querySelector(".pick-btn"); shake(b); return openPicker(b); }
+    const body = { result, me: $("#fMe").value, opp: $("#fOpp").value, stage: $("#fStage").value,
+      at: $("#fAt").value.length === 16 ? $("#fAt").value + ":00" : $("#fAt").value, note: $("#fNote").value.trim(), status: "ok" };
+    const res = await fetch(isNew ? "/api/records" : `/api/records/${r.id}`, { method: isNew ? "POST" : "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) return toast("保存できませんでした");
+    closeSheet(); toast(isNew ? "足しました" : "直しました"); load();
+  };
+  const del = $("#delBtn");
+  if (del) del.onclick = async () => {
+    if (del.dataset.armed !== "1") { del.dataset.armed = "1"; del.textContent = "本当に消す"; return; }
+    const res = await fetch(`/api/records/${r.id}`, { method: "DELETE" });
+    if (!res.ok) return toast("消せませんでした");
+    closeSheet(); toast("消しました"); load();
+  };
+}
+
+/* キャラ・ステージ選び。ゲームと同じ番号順（いつも同じ場所にあるので目で探せる）に並べ、文字でしぼれる。
+   押した欄の行のすぐ下に開く */
+function pickItems(key) {
+  const list = key === "stage"
+    ? S.stages.map(s => ({ v: s.name, label: s.name, order: s.order }))
+    : S.fighters.map(f => ({ v: f.name, label: f.short, alt: f.name, order: f.order }));
+  return list.sort((a, b) => a.order - b.order);
+}
+function openPicker(btn) {
+  const fieldEl = btn.closest(".field"), key = btn.dataset.pick, input = fieldEl.querySelector("input[type=hidden]");
+  const old = $("#pickPop");
+  const wasOpen = fieldEl.classList.contains("open");
+  if (old) old.remove();
+  document.querySelectorAll(".field.open").forEach(f => f.classList.remove("open"));
+  if (wasOpen) return;
+  fieldEl.classList.add("open");
+  const pop = document.createElement("div");
+  pop.className = "pick-pop"; pop.id = "pickPop";
+  pop.innerHTML = `<input class="pick-q" type="search" aria-label="しぼる" autocomplete="off"><div class="pick-list"></div>`;
+  btn.closest(".two").after(pop);
+  const items = pickItems(key), listEl = pop.querySelector(".pick-list"), q = pop.querySelector(".pick-q");
+  const draw = () => {
+    const t = q.value.trim();
+    const hit = items.filter(i => !t || i.v.includes(t) || i.label.includes(t) || (i.alt || "").includes(t));
+    listEl.innerHTML = hit.length ? hit.map(i => `<button type="button" data-v="${esc(i.v)}" title="${esc(i.v)}" aria-pressed="${i.v === input.value}">${esc(i.label)}</button>`).join("")
+      : `<span class="none">見つかりません</span>`;
+  };
+  draw();
+  q.oninput = draw;
+  listEl.onclick = e => {
+    const c = e.target.closest("[data-v]");
+    if (!c) return;
+    input.value = c.dataset.v;
+    btn.querySelector(".pv").textContent = c.dataset.v; btn.title = c.dataset.v; btn.classList.remove("empty");
+    fieldEl.classList.remove("unsure", "open");
+    pop.remove();
+  };
+  if (matchMedia("(pointer:fine)").matches) q.focus();
+}
+
+/* 操作 */
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-me],[data-tab],[data-opp],[data-id],[data-close],[data-chap],[data-copy]");
+  if (!t) return;
+  if (t.dataset.chap) return showChapters(t.dataset.chap);
+  if (t.dataset.copy) { navigator.clipboard?.writeText(t.dataset.copy).then(() => toast("写しました"), () => toast("写せませんでした。文字を長押しして写してください")); return; }
+  if (t.dataset.close !== undefined) return closeSheet();
+  if (t.dataset.me) { S.me = t.dataset.me; try { localStorage.setItem("smash.me", S.me); } catch {} openMe(false); return render(); }
+  if (t.dataset.tab) { S.tab = t.dataset.tab; return render(); }
+  if (t.dataset.opp) return showOpp(t.dataset.opp);
+  if (t.dataset.id && t.classList.contains("row") && !STATIC) return editForm(S.records.find(r => r.id === t.dataset.id));
+});
+$("#scrim").onclick = closeSheet;
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+$("#search").oninput = e => { S.q = e.target.value; renderGrid(); };
+// 自キャラの一覧：押すと開き、選ぶ・外を押す・Esc で閉じる
+// 開くときは .open、閉じるときは .closing のアニメーションを流し、終わってから隠す
+function openMe(on) {
+  const l = $("#meList"), b = $("#meBtn");
+  const shown = !l.hidden && !l.classList.contains("closing");
+  if (on === undefined) on = !shown;
+  if (on === shown) return;
+  b.setAttribute("aria-expanded", on);
+  clearTimeout(l._closeT);
+  l.classList.remove("open", "closing");
+  void l.offsetWidth;                                   // アニメーションを最初から流し直す
+  if (on) { l.hidden = false; l.classList.add("open"); return; }
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { l.hidden = true; return; }
+  l.classList.add("closing");
+  l._closeT = setTimeout(() => { l.hidden = true; l.classList.remove("closing"); }, S.skin === "b" ? 170 : 130);
+}
+$("#meBtn").onclick = () => openMe();
+document.addEventListener("pointerdown", e => { if (!$("#meList").hidden && !e.target.closest("#meDD")) openMe(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#meList").hidden) openMe(false); });
+$("#skinBtn").onclick = () => playTransition(() => {
+  S.skin = S.skin === "a" ? "b" : "a";
+  try { localStorage.setItem("smash.skin", S.skin); } catch {}
+  document.documentElement.dataset.skin = S.skin;
+  render();
+});
+
+// 見た目 B のボタン：押している間は光り（.zhold）、離すと 1 コマずつ 2 回点滅してから決まる（ゼンゼロの縦のボタンの録画にならう）
+const ZBTN = ".chip, .fab, .btn, .seg button, .day h3 .chap, .pick-list button, nav.tabs button, .me-btn, .me-opt";
+document.addEventListener("pointerdown", e => {
+  const b = S.skin === "b" && e.target.closest(ZBTN);
+  if (b && !b.classList.contains("zblink")) b.classList.add("zhold");
+});
+// 指を離した場所がボタンの外（ずらして離した・取り消した）なら、光を消すだけで決めない
+for (const ev of ["pointerup", "pointercancel"])
+  document.addEventListener(ev, e => {
+    const on = ev === "pointerup" && e.target.closest(ZBTN);
+    document.querySelectorAll(".zhold").forEach(b => { if (b !== on) b.classList.remove("zhold"); });
+  }, true);
+document.addEventListener("click", e => {
+  const b = S.skin === "b" && e.target.closest(ZBTN);
+  if (!b || b._zpass) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  if (b.classList.contains("zblink")) return;
+  b.classList.remove("zhold"); b.classList.add("zblink");               // 点滅そのものは CSS の zblink（165ms）
+  setTimeout(() => {
+    b.classList.remove("zblink");
+    b._zpass = true; b.click(); b._zpass = false;                        // 点滅が終わってから、本来の動き（決定）
+  }, 165);
+}, true);
+
+// 画面遷移（README「見た目 A / B」）。録画の 33 コマ（30fps）から測った時刻と位置で動かす。
+// 板の先（「<」の先）の位置を、画面の幅に対する割合で：右の外 → 0.86 → 0.73 → 0.21 → 覆う（加速しながら流れ込む）
+function playTransition(swap) {
+  const box = $("#xfer");
+  if (box.classList.contains("on")) return;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return swap();
+  const W = innerWidth, H = innerHeight, k = Math.round(H * .145);   // k = 「<」の切れ込みの深さ（録画で画面の高さの 14.5%）
+  const lt = box.querySelector(".lt"), dk = box.querySelector(".dk"), mv = box.querySelector(".xfer-move");
+  const wl = Math.round(W * .73) + 2 * k, wd = Math.round(W * .6) + 2 * k;   // 明るい板は覆ったとき画面の 73% まで、その右は暗い板
+  const chev = "polygon(0 50%," + k + "px 0,100% 0,calc(100% - " + k + "px) 50%,100% 100%," + k + "px 100%)";
+  Object.assign(lt.style, { left: "0px", width: wl + "px", clipPath: chev });
+  Object.assign(dk.style, { left: (wl - k) + "px", width: (wd + k) + "px", clipPath: chev });   // 暗い板も両端を「<」形に（録画の抜ける瞬間の形）
+  mv.style.width = (wl + wd + 2 * k) + "px";
+  // 時刻（ミリ秒）。覆ったまま止まる間は、録画の 500ms の 1/3 からさらに 2 コマ（録画の 30fps で 67ms）減らした 100ms（2026-11-13 kog さん）。
+  // 板が抜けたあとは、字の点滅（パパッ → 0.3 秒 → パパパッ → 最後に消えたまま）が終わったらすぐ帯を閉じる
+  // 板が左へ抜ける動きは、録画（約 2 コマで一瞬）より長く、間のコマを埋めてなめらかに（2026-11-13 kog さん）
+  const IN = 200, HOLD = 100, OUT = IN + HOLD, BLINK = 26;           // BLINK = 点滅の 1 回の消えている時間・点いている時間（17 未満にすると、消えた瞬間が画面に出ない点滅が混ざる）
+  const blinks = [60, 60 + 2 * BLINK];                                  // 帯が開いてすぐ 2 回
+  const second = blinks[1] + 2 * BLINK + 300;                           // 0.3 秒空けて 3 回
+  blinks.push(second, second + 2 * BLINK, second + 4 * BLINK);
+  const EXIT = 220;                                                     // 板が左へ抜けきるまで
+  const lastOff = blinks[4] + 2 * BLINK;                                // 3 回目のあとにもう 1 回消えて、そのまま点かない
+  const CLOSE = Math.max(OUT + EXIT, lastOff + BLINK), T = CLOSE + 100, at = ms => ms / T;
+  const x = v => `translateX(${Math.round(v)}px)`;
+  // 切り替え先で初めて使う書体と背景の絵を、板が流れ込んでいる間に先に読み込んでおく（下の「描き終わるまで待つ」を短くする）
+  const text = document.body.innerText.slice(0, 4000);
+  const ready = Promise.all([
+    document.fonts.load('900 16px "Noto Sans JP"', text), document.fonts.load('700 16px "Noto Sans JP"', text),
+    document.fonts.load('italic 900 16px "Barlow Condensed"', "SMASH"),
+    Object.assign(new Image(), { src: "band.webp" }).decode(),
+  ]).catch(() => {});
+  box.classList.add("on");
+  const parts = [];                                                     // [動かす物, コマ, 設定]。下で「覆う」と「抜ける」の 2 本に分けて流す
+  parts.push([mv, [
+    { offset: 0, transform: x(W + 2 * k) },
+    { offset: at(33), transform: x(W * .86) },
+    { offset: at(100), transform: x(W * .73) },
+    { offset: at(167), transform: x(W * .21) },
+    { offset: at(IN), transform: x(-k) },
+    { offset: at(OUT), transform: x(-k), easing: "cubic-bezier(.45,0,.75,.55)" },   // 止まった所から加速して左へ抜ける
+    { offset: at(OUT + EXIT), transform: x(-(wl + wd + 2 * k)) },
+    { offset: 1, transform: x(-(wl + wd + 2 * k)) },
+  ], { duration: T, easing: "linear" }]);
+  parts.push([box.querySelector(".xfer-band"), [
+    { offset: 0, transform: "scaleY(0)" }, { offset: at(33), transform: "scaleY(1)" },
+    { offset: at(CLOSE), transform: "scaleY(1)" }, { offset: at(CLOSE + 33), transform: "scaleY(.5)" },
+    { offset: at(CLOSE + 66), transform: "scaleY(.15)" }, { offset: 1, transform: "scaleY(0)" },
+  ], { duration: T, easing: "linear", fill: "forwards" }]);
+  // 字だけを点滅（消える → 点く）。間をなめらかにつながないよう、1 コマずつ「段」で切り替える
+  // （steps を全体に掛けると最初の値のまま動かないので、コマごとに掛ける）
+  const step = "steps(1, end)", frames = [{ offset: 0, opacity: 1, easing: step }];
+  for (const b of blinks) frames.push({ offset: at(b), opacity: 0, easing: step }, { offset: at(b + BLINK), opacity: 1, easing: step });
+  frames.push({ offset: at(lastOff), opacity: 0, easing: step }, { offset: 1, opacity: 0 });
+  parts.push([box.querySelector(".xfer-band span"), frames, { duration: T }]);
+  // 画面が覆われている間に切り替え、切り替えた画面を描き終わるまで板を覆ったまま待つ（2026-11-17）。
+  // 待たずに板を抜くと、スマホでは描き直しが間に合わず、板が通り過ぎた直後に描きかけの所がちらついた（A → B でほぼ毎回）。
+  // 動きは「覆う（0 → OUT）」と「抜ける（OUT → 終わり）」の 2 本に分ける。1 本目は覆った所で止まったままなので、
+  // スマホが忙しくても板が勝手に抜けない（1 本の動きを途中で止める形だと、GPU 側で抜けかけた板が止めた位置へ巻き戻り、流れ直して見えた）。
+  // 切り替える時は、タイマーではなく板の動きの時刻（currentTime）で決める（重いとタイマーがずれ、覆いきる前に切り替わっていた）
+  // 2 本は、それぞれ専用のコマの並びにする（全体の途中までだけ流す指定 iterations: 0.3 は、iPhone で板が右側で小刻みに動いた）
+  const cut = OUT / T, frame = () => new Promise(r => requestAnimationFrame(r));
+  const slice = (f, a, b) => {                                          // コマの並びの a〜b（0〜1）だけを、0〜1 に伸ばして取り出す
+    const at = o => { let v = f[0]; for (const k of f) if (k.offset <= o) v = k; return v; };   // その時点の値（直前のコマ。境目はどれも同じ値か段の切り替え）
+    const out = f.filter(k => k.offset > a && k.offset < b);
+    out.unshift({ ...at(a), offset: a });
+    const { easing, ...end } = at(b); out.push({ ...end, offset: b });
+    return out.map(k => ({ ...k, offset: (k.offset - a) / (b - a) }));
+  };
+  const cover = parts.map(([el, f, o]) => el.animate(slice(f, 0, cut), { ...o, duration: OUT, fill: "forwards" }));
+  (async () => {
+    while ((cover[0].currentTime ?? 0) < IN) await frame();             // 板が画面を覆いきるまで待つ
+    swap();
+    await Promise.race([ready, new Promise(r => setTimeout(r, 1500))]);  // 書体・絵の用意（長くても 1.5 秒まで）
+    await frame(); await frame();                                       // 切り替えた画面を描き終える
+    await cover[0].finished.catch(() => {});                            // 覆っている時間は、軽い端末では前と同じ 0.1 秒
+    const exit = parts.map(([el, f, o]) => el.animate(slice(f, cut, 1), { ...o, duration: T - OUT }));
+    cover.forEach(a => a.cancel());
+    await exit[0].finished.catch(() => {});
+    box.classList.remove("on");
+    exit.forEach(a => a.cancel());
+  })();
+}
+$("#addBtn").onclick = () => {
+  const last = mine().slice(-1)[0] || S.records.slice(-1)[0] || {};
+  editForm({ me: S.me !== "ALL" ? S.me : last.me, opp: last.opp, stage: last.stage || "終点", result: "", note: "" });
+};
+
+load();
+setInterval(poll, STATIC ? 60000 : 5000);  // 見るだけの写しは 1 分ごと（GitHub に何度も尋ねない）
+document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+</script>
+</body>
+</html>
