@@ -662,7 +662,6 @@ form.edit{display:flex;flex-direction:column;gap:12px;margin-top:12px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 /* 見るだけの写し（GitHub Pages）：足す・直すはできないので、その入口を出さない */
 html.static #addBtn{display:none}
-html.static button.row{cursor:default}
 </style>
 </head>
 <body>
@@ -981,6 +980,19 @@ function showOpp(name) {
   `);
 }
 
+// 見るだけの写しで試合の行を押したとき：その試合を読むだけの板（直す入口は出さない）
+function showMatch(r) {
+  openSheet(`
+    <h2>${r.me ? `<span class="me">${esc(r.me)}</span><span class="x num">VS</span>` : ""}<span>${esc(r.opp || "？")}</span></h2>
+    <div class="kpis">
+      <div><span class="v num"><span class="${r.result === "win" ? "w" : "l"}">${r.result === "win" ? "WIN" : "LOSE"}</span></span><span class="k">${r.sudden ? "サドンデス" : "結果"}</span></div>
+      <div><span class="v">${esc(r.stage || "不明")}</span><span class="k">ステージ</span></div>
+      <div class="last"><span class="k">日時</span><span class="d">${esc(fmtDate(r.at))} ${esc(r.at.slice(11, 16))}</span></div>
+    </div>
+    ${r.note ? `<div class="sec">対策メモ</div><ul class="notes"><li>${esc(r.note)}</li></ul>` : ""}
+    ${r.opp ? `<div class="actions"><button type="button" class="btn" data-opp="${esc(r.opp)}">${esc(r.opp)} との成績</button></div>` : ""}`);
+}
+
 function editForm(r) {
   const isNew = !r.id;
   const at = (r.at || nowLocal()).slice(0, 16);
@@ -1095,7 +1107,7 @@ document.addEventListener("click", e => {
   if (t.dataset.me) { S.me = t.dataset.me; try { localStorage.setItem("smash.me", S.me); } catch {} openMe(false); return render(); }
   if (t.dataset.tab) { S.tab = t.dataset.tab; return render(); }
   if (t.dataset.opp) return showOpp(t.dataset.opp);
-  if (t.dataset.id && t.classList.contains("row") && !STATIC) return editForm(S.records.find(r => r.id === t.dataset.id));
+  if (t.dataset.id && t.classList.contains("row")) { const r = S.records.find(x => x.id === t.dataset.id); return STATIC ? showMatch(r) : editForm(r); }
 });
 $("#scrim").onclick = closeSheet;
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
