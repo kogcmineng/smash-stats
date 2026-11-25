@@ -905,7 +905,10 @@ function renderLog() {
 const hms = sec => { sec = Math.max(0, Math.floor(sec)); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s2 = String(sec % 60).padStart(2, "0");
   return h ? `${h}:${String(m).padStart(2, "0")}:${s2}` : `${m}:${s2}`; };
 function showChapters(day) {
-  const recs = S.records.filter(r => r.rec && r.rec.recStart && r.me && r.opp && dayOf(r.at) === day).sort(byTime);
+  // 録画が日の区切り（朝 6 時）をまたいでも、その録画の試合は全部並べる（YouTube の概要欄と同じ数になるように）
+  const all = S.records.filter(r => r.rec && r.rec.recStart && r.me && r.opp);
+  const starts = new Set(all.filter(r => dayOf(r.at) === day).map(r => r.rec.recStart));
+  const recs = all.filter(r => starts.has(r.rec.recStart)).sort(byTime);
   const groups = {};
   recs.forEach(r => (groups[r.rec.recStart] ||= []).push(r));
   const blocks = Object.entries(groups).map(([start, rs]) => {
